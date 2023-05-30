@@ -55,8 +55,10 @@ scene.add(ambientLight)
 
 
 let rotated = false;
-const flyInDuration = 15; // Duration of the flying animation in seconds
+let initialHoverPosition; // Initial position of the hover animation
+const flyInDuration = .5; // Duration of the flying animation in seconds
 const flyInEndPosition = new THREE.Vector3(0, 0, 0);
+const rotationAmplitude = 0.07;
 let model, hoverAmplitude, hoverFrequency, initialY, mixer;
 const assetLoader = new GLTFLoader();
 assetLoader.load(xwingUrl.href, function(gltf) {
@@ -75,52 +77,52 @@ assetLoader.load(xwingUrl.href, function(gltf) {
 
     initialY = model.position.y; // Store the initial y-position of the object
     hoverAmplitude = 0.5; // Adjust the amplitude of the hover motion as needed
-    hoverFrequency = .9;
+    hoverFrequency = 1;
 
-    let elapsedtime = 0;
+    let elapsedTime = 0;
+    let isFlyInAnimationComplete = false;
     function animateModel() {
         const deltaTime = clock.getDelta();
     
-        // Update the elapsed time
-        elapsedtime += deltaTime;
-    
-        // Calculate the interpolation factor (0 to 1) based on the elapsed time and duration
-        const t = Math.min(elapsedtime / flyInDuration, 1);
-    
-        // Interpolate the position from the initial position to the destination position
-        const interpolatedPosition = new THREE.Vector3();
-        interpolatedPosition.lerpVectors(model.position, flyInEndPosition, t);
-    
-        // Update the model's position
-        model.position.copy(interpolatedPosition);
-    
-        // Render the scene
-       if (elapsedtime <= flyInDuration) {
-         renderer.render(scene, camera);
-       }
-    
-       if (model.rotation.y > -.011) {
-        console.log(model.rotation.y)
-       //model.rotation.y -= .01;
+        // Check if the fly-in animation is complete
+        if (!isFlyInAnimationComplete) {
+          elapsedTime += deltaTime;
+      
+          // Calculate the interpolation factor (0 to 1) based on the elapsed time and duration
+          const t = Math.min(elapsedTime / flyInDuration, 1);
+      
+          // Interpolate the position from the initial position to the destination position
+          const interpolatedPosition = new THREE.Vector3();
+          interpolatedPosition.lerpVectors(model.position, flyInEndPosition, t);
+      
+          // Update the model's position
+          model.position.copy(interpolatedPosition);
+      
+          // Check if the fly-in animation is complete
+          if ((elapsedTime) >= flyInDuration) {
+            isFlyInAnimationComplete = true;
+            initialHoverPosition = model.position.clone();
+          }
+        } else {
+          console.log("IN ELSE");
+          // Calculate the vertical position offset based on time
+          const time = performance.now() * 0.001;
+          const verticalOffset = Math.sin(time * hoverFrequency) * hoverAmplitude;
+          // Apply the hover animation to the object with a smooth transition from fly-in position
+          const targetPosition = initialHoverPosition.clone().add(new THREE.Vector3(0, verticalOffset, 0));
+          // Apply the hover animation to the object
+          model.position.lerp(targetPosition, deltaTime * 5); // Adjust the blending speed as needed
+
+          const targetRotation = new THREE.Euler(verticalOffset * rotationAmplitude, 0, 0);
+          model.rotation.x = THREE.MathUtils.lerp(model.rotation.x, targetRotation.x, deltaTime * 5); // Adjust the blending speed as needed
+         // model.rotation.x = verticalOffset * 0.07; // Adjust rotation based on vertical offset
         }
-        // Continue the animation until the duration is reached
-        if ((elapsedtime * 10) < (flyInDuration)) {
-           // console.log(initialY, flyInDuration)
-            initialY = model.position.y
-            requestAnimationFrame(animateModel);
-        } else{
-            
-            //console.log('YO', elapsedtime, flyInDuration)
-            const time = Date.now() * 0.001; // Get the current time
-            const displacement = Math.sin(time * hoverFrequency) * hoverAmplitude;
-            const interpolatedPosition = new THREE.Vector3();
-            interpolatedPosition.lerpVectors(model.position, new THREE.Vector3(0, initialY + displacement, 0), .5);
-            //model.position.y = model.position.y + displacement
-            model.position.copy(interpolatedPosition);
-            renderer.render(scene,camera)
-           // console.log("in here", model.position.y)
-            requestAnimationFrame(animateModel);
-        }
+
+         // Render the scene
+        renderer.render(scene, camera);
+
+        // Continue the animation loop
+        requestAnimationFrame(animateModel);
       }
 
       animateModel()
@@ -133,7 +135,7 @@ directionalLight.castShadow = true
 directionalLight.shadow.camera.bottom = -12
 
 const dLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5)
-scene.add(dLightHelper)
+//scene.add(dLightHelper)
 
 const dLightShadowHelper = new THREE.CameraHelper(directionalLight.shadow.camera)
 //scene.add(dLightShadowHelper)
